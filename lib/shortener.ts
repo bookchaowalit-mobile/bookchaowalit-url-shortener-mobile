@@ -108,3 +108,29 @@ export const shortUrl = (code: string, domain = SHORT_DOMAIN) => `https://${doma
 export function totalClicks(links: ShortLink[]): number {
   return links.reduce((n, l) => n + l.clicks, 0);
 }
+
+export function removeLink(links: ShortLink[], code: string): ShortLink[] {
+  return links.filter((l) => l.code !== code);
+}
+
+/**
+ * Type guard used when loading links from local storage. The URL is re-validated
+ * with `normalizeUrl` so tampered storage cannot smuggle a `javascript:` or
+ * `data:` URL into `Linking.openURL`.
+ */
+export function isShortLink(value: unknown): value is ShortLink {
+  if (typeof value !== "object" || value === null) return false;
+  const l = value as Record<string, unknown>;
+  return (
+    typeof l.code === "string" &&
+    /^[A-Za-z0-9_-]{1,32}$/.test(l.code) &&
+    typeof l.url === "string" &&
+    normalizeUrl(l.url) === l.url &&
+    typeof l.createdAt === "number" &&
+    Number.isFinite(l.createdAt) &&
+    typeof l.clicks === "number" &&
+    Number.isInteger(l.clicks) &&
+    l.clicks >= 0 &&
+    (l.lastClickedAt === null || (typeof l.lastClickedAt === "number" && Number.isFinite(l.lastClickedAt)))
+  );
+}

@@ -1,9 +1,21 @@
 import { useState } from "react";
 import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
-import { type ShortLink, createLink, recordClick, shortUrl, totalClicks } from "../../lib/shortener";
+import { listCodec } from "../../lib/persist";
+import {
+  type ShortLink,
+  createLink,
+  isShortLink,
+  recordClick,
+  removeLink,
+  shortUrl,
+  totalClicks,
+} from "../../lib/shortener";
+import { usePersistentState } from "../../lib/usePersistentState";
+
+const linksCodec = listCodec(isShortLink);
 
 export default function LinksScreen() {
-  const [links, setLinks] = useState<ShortLink[]>([]);
+  const [links, setLinks] = usePersistentState<ShortLink[]>("shortener.links.v1", [], linksCodec);
   const [url, setUrl] = useState("");
   const [alias, setAlias] = useState("");
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
@@ -25,10 +37,14 @@ export default function LinksScreen() {
 
   const open = async (link: ShortLink) => {
     setLinks((list) => recordClick(list, link.code, Date.now()));
-    await Linking.openURL(link.url);
+    try {
+      await Linking.openURL(link.url);
+    } catch {
+      setMessage({ text: `Could not open ${link.url}`, error: true });
+    }
   };
 
-  const share = (link: ShortLink) => Share.share({ message: shortUrl(link.code) });
+  const share = (link: ShortLink) => Share.share({ message: shortUrl(link.code) }).catch(() => undefined);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -52,7 +68,7 @@ export default function LinksScreen() {
           style={styles.input}
           value={alias}
         />
-        <Pressable accessibilityRole="button" onPress={shorten} style={styles.button}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Shorten URL" onPress={shorten} style={styles.button}>
           <Text style={styles.buttonText}>Shorten</Text>
         </Pressable>
         {message && (
@@ -83,6 +99,13 @@ export default function LinksScreen() {
             <Pressable accessibilityLabel={`Share ${shortUrl(link.code)}`} accessibilityRole="button" onPress={() => share(link)}>
               <Text style={styles.action}>Share</Text>
             </Pressable>
+            <Pressable
+              accessibilityLabel={`Delete ${shortUrl(link.code)}`}
+              accessibilityRole="button"
+              onPress={() => setLinks((list) => removeLink(list, link.code))}
+            >
+              <Text style={[styles.action, styles.danger]}>Delete</Text>
+            </Pressable>
           </View>
         </View>
       ))}
@@ -108,6 +131,8 @@ const styles = StyleSheet.create({
   ok: { color: "#2E7D32" },
   summary: { fontWeight: "600", color: "#333" },
   empty: { color: "#666", textAlign: "center", marginTop: 16 },
+  danger: { color: "#B00020" },
+
   link: { backgroundColor: "#fff", borderRadius: 12, padding: 12, gap: 4 },
   short: { fontSize: 16, fontWeight: "700", color: "#2F6DB5" },
   long: { color: "#555", fontSize: 13 },
