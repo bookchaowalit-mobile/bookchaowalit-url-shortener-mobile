@@ -90,3 +90,28 @@ describe("clicks and lookup", () => {
     expect(shortUrl("abc")).toBe("https://bkc.link/abc");
   });
 });
+
+describe("pass 3 edge cases", () => {
+  it("accepts host:port without a scheme", () => {
+    expect(normalizeUrl("example.com:8080/x")).toBe("https://example.com:8080/x");
+    expect(normalizeUrl("localhost:3000")).toBe("https://localhost:3000/");
+  });
+  it("rejects impossible ports and IPv4 octets", () => {
+    expect(normalizeUrl("https://example.com:99999/")).toBeNull();
+    expect(normalizeUrl("https://example.com:0/")).toBeNull();
+    expect(normalizeUrl("http://999.1.1.1/")).toBeNull();
+    expect(normalizeUrl("http://192.168.1.255/")).toBe("http://192.168.1.255/");
+  });
+  it("accepts punycode top-level domains", () => {
+    expect(normalizeUrl("https://xn--80ak6aa92e.xn--p1ai/")).toBe("https://xn--80ak6aa92e.xn--p1ai/");
+  });
+  it("strips pasted zero-width characters so duplicates are detected", () => {
+    expect(normalizeUrl("https://example.com/a\u200B")).toBe("https://example.com/a");
+    const first = createLink([], { url: "https://example.com/a" }, 1);
+    expect(createLink(first.links, { url: "\u2060https://example.com/a\u200B" }, 2).existing).toBe(true);
+  });
+  it("still refuses non-http schemes", () => {
+    expect(normalizeUrl("javascript:alert(1)")).toBeNull();
+    expect(normalizeUrl("tel:12345")).toBeNull();
+  });
+});

@@ -16,7 +16,13 @@ export const SHORT_DOMAIN = "bkc.link";
 const BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const ALIAS_PATTERN = /^[A-Za-z0-9_-]{3,32}$/;
 const URL_PATTERN = /^(https?):\/\/([^/?#\s:@]+)(:\d{1,5})?([/?#][^\s]*)?$/i;
-const HOST_PATTERN = /^(localhost|(\d{1,3}\.){3}\d{1,3}|([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63})$/i;
+const OCTET = "(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
+const HOST_PATTERN = new RegExp(
+  `^(localhost|(${OCTET}\\.){3}${OCTET}|([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+([a-z]{2,63}|xn--[a-z0-9-]{1,59}))$`,
+  "i",
+);
+/** Zero-width characters and BOM: never valid raw in a URL, often picked up by copy/paste. */
+const INVISIBLE = /[\u200B-\u200D\u2060\uFEFF]/g;
 
 /**
  * Adds `https://` when no scheme is given, lower-cases scheme and host, and
@@ -24,13 +30,15 @@ const HOST_PATTERN = /^(localhost|(\d{1,3}\.){3}\d{1,3}|([a-z0-9]([a-z0-9-]{0,61
  * rejects `javascript:`, `data:` and similar schemes).
  */
 export function normalizeUrl(input: string): string | null {
-  let text = input.trim();
+  let text = input.replace(INVISIBLE, "").trim();
   if (!text) return null;
-  if (!/^[a-z][a-z0-9+.-]*:/i.test(text)) text = `https://${text}`;
+  // "example.com:8080/x" has no scheme: a colon followed by digits is a port.
+  if (!/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(text)) text = `https://${text}`;
   const m = URL_PATTERN.exec(text);
   if (!m) return null;
   const [, scheme, host, port = "", rest = ""] = m;
   if (!HOST_PATTERN.test(host)) return null;
+  if (port && (Number(port.slice(1)) < 1 || Number(port.slice(1)) > 65535)) return null;
   return `${scheme.toLowerCase()}://${host.toLowerCase()}${port}${rest || "/"}`;
 }
 

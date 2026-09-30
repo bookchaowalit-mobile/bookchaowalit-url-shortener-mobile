@@ -35,3 +35,16 @@ Score: 6/10 (was 5/10) — links persist and can be deleted; still local-only co
 - Accessibility: shorten/delete buttons labelled; profile links get link roles.
 - Advisories: `overrides.postcss ^8.5.28` clears the high-severity PostCSS advisory in Expo metro-config (minor bump). Remaining `image-size` (metro, bundler-only), `uuid` (via `xcode`) and `decode-uri-component` (via `query-string@7`) need an Expo SDK major upgrade; deliberately not auto-fixed.
 - Verified: typecheck, lint, 19 vitest tests, Android `expo export` bundle.
+
+## Done in this pass (pass 3)
+
+Score: 6.5/10 (was 6/10) — edge-case hunt in `lib/shortener.ts` (`normalizeUrl`).
+
+- Bug: `example.com:8080/x` and `localhost:3000` (no scheme) were rejected, because `host:` was
+  mistaken for a URL scheme. A colon followed by digits is now read as a port.
+- Bug: ports 0 and 65536–99999 and IPv4 octets above 255 (`999.1.1.1`) were accepted.
+- Bug: punycode TLDs (`xn--p1ai`) were rejected by the letters-only TLD rule.
+- Bug: zero-width characters picked up by copy/paste stayed in the URL, so a pasted duplicate
+  created a second, broken link; they are stripped before validation.
+- `javascript:`/`tel:` etc. are still refused (regression-tested).
+- Verified: typecheck, `expo lint`, vitest (24), Android `expo export`; new tests fail on the old code.
